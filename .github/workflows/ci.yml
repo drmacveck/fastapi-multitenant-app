@@ -1,0 +1,28 @@
+name: FastAPI Multi-Tenant CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start services with Docker Compose
+        run: docker compose up -d --build
+
+      - name: Run Test Suite
+        run: docker compose exec -T web pytest test_main.py -v
+
+      - name: Tear down services
+        if: always()
+        run: docker compose down -v
