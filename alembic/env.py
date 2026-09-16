@@ -1,20 +1,32 @@
+import os
+import sys
+from pathlib import Path
+
+# Add project root directory (/app) to Python path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 import asyncio
 from logging.config import fileConfig
 from sqlalchemy import pool
-from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
-import models
-from config import settings
+from models import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+# Override sqlalchemy.url with environment variable if present
+db_url = os.getenv("DATABASE_URL")
+if db_url:
+    # Ensure URL works for async engine context
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    config.set_main_option("sqlalchemy.url", db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = models.Base.metadata
+target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
@@ -28,7 +40,7 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
-def do_run_migrations(connection: Connection) -> None:
+def do_run_migrations(connection):
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
