@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Header, HTTPException, Depends
+
+from fastapi import Depends, FastAPI, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional, List
-from database import engine, Base, get_db
+
 import auth
 import crud
 import schemas
+from database import Base, engine, get_db
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,9 +24,9 @@ async def health_check():
 if hasattr(auth, "router"):
     app.include_router(auth.router)
 
-@app.get("/items/", response_model=List[schemas.ItemResponse])
+@app.get("/items/", response_model=list[schemas.ItemResponse])
 async def list_items(
-    x_tenant_id: Optional[str] = Header(None, alias="X-Tenant-ID"),
+    x_tenant_id: str | None = Header(None, alias="X-Tenant-ID"),
     db: AsyncSession = Depends(get_db)
 ):
     if not x_tenant_id:
@@ -35,7 +37,7 @@ async def list_items(
 @app.post("/items/", response_model=schemas.ItemResponse, status_code=201)
 async def create_item(
     item_in: schemas.ItemCreate,
-    x_tenant_id: Optional[str] = Header(None, alias="X-Tenant-ID"),
+    x_tenant_id: str | None = Header(None, alias="X-Tenant-ID"),
     db: AsyncSession = Depends(get_db)
 ):
     if not x_tenant_id:

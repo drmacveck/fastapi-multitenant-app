@@ -1,7 +1,9 @@
 import json
 import time
-from typing import Any, Optional
+from typing import Any
+
 from fastapi import HTTPException, status
+
 from redis_client import redis_client
 
 DEFAULT_TTL = 3600
@@ -10,13 +12,13 @@ async def set_cached_json(key: str, value: Any, ttl: int = DEFAULT_TTL) -> None:
     serialized = json.dumps(value)
     await redis_client.set(key, serialized, ex=ttl)
 
-async def get_cached_json(key: str) -> Optional[Any]:
+async def get_cached_json(key: str) -> Any | None:
     cached = await redis_client.get(key)
     if cached:
         return json.loads(cached)
     return None
 
-async def invalidate_tenant_cache(tenant_id: Optional[str] = None, pattern: Optional[str] = None) -> None:
+async def invalidate_tenant_cache(tenant_id: str | None = None, pattern: str | None = None) -> None:
     target_pattern = pattern if pattern else f"tenant:{tenant_id}:*"
     keys = await redis_client.keys(target_pattern)
     if keys:

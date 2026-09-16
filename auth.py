@@ -1,8 +1,8 @@
 import os
 import uuid
-import bcrypt
 from datetime import datetime, timedelta
-from typing import Optional
+
+import bcrypt
 from jose import jwt
 
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key-change-me")
@@ -18,7 +18,7 @@ def get_password_hash(password: str) -> str:
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password_bytes, salt).decode('utf-8')
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta

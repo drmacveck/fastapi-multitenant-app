@@ -2,6 +2,7 @@ import pytest
 from alembic.command import check
 from alembic.config import Config
 
+
 def test_no_uncommitted_migration_drift():
     """
     Fails if SQLAlchemy models have pending changes not recorded in Alembic migrations.

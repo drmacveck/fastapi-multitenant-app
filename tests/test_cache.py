@@ -1,7 +1,8 @@
+import json
+import os
+
 import pytest
 import redis.asyncio as redis
-import os
-import json
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 

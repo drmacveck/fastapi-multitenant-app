@@ -1,6 +1,9 @@
 import time
+
 from fastapi import HTTPException, status
+
 from redis_client import redis_client
+
 
 async def check_tenant_rate_limit(tenant_id: str, max_requests: int = 100, window_seconds: int = 60):
     current_time = time.time()

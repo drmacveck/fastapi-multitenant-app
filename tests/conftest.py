@@ -1,12 +1,12 @@
-import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from database import engine, Base, AsyncSessionLocal
-from main import app
+from httpx import ASGITransport, AsyncClient
+
 import auth
-import models
 import crud
-import schemas
+import models
+from database import AsyncSessionLocal, Base, engine
+from main import app
+
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
 async def setup_database():

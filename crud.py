@@ -1,7 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+
 import models
 import schemas
+
 
 async def get_items_by_tenant(db: AsyncSession, tenant_id: str):
     result = await db.execute(

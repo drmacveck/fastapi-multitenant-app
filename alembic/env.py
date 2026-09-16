@@ -7,10 +7,11 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import asyncio
 from logging.config import fileConfig
+
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
-from alembic import context
 
+from alembic import context
 from models import Base
 
 config = context.config

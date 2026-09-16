@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 
+
 @pytest.mark.asyncio
 async def test_tenant_rate_limiting_trigger(async_client: AsyncClient, create_authenticated_headers):
     headers = await create_authenticated_headers("rate_limit_tenant")

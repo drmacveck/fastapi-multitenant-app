@@ -1,0 +1,8 @@
+
+[tool.ruff]
+# Ignore alembic migrations completely
+exclude = ["alembic/versions/*"]
+
+[tool.ruff.lint]
+# Ignore FastAPI Depends (B008), utcnow deprecation (DTZ003), and blind exceptions (BLE001)
+ignore = ["B008", "DTZ003", "BLE001"]
