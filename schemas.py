@@ -1,24 +1,24 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 class UserBase(BaseModel):
-    email: EmailStr
-    username: str
+    email: str
+    tenant_id: str
 
 class UserCreate(UserBase):
     password: str
 
 class UserResponse(UserBase):
     id: int
+    model_config = ConfigDict(from_attributes=True)
+
+class ItemBase(BaseModel):
+    name: str
+
+class ItemCreate(ItemBase):
+    pass
+
+class ItemResponse(ItemBase):
+    id: int
     tenant_id: str
-
-    class Config:
-        from_attributes = True
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-class TokenData(BaseModel):
-    email: Optional[str] = None
-    tenant_id: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
