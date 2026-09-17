@@ -3,6 +3,9 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
+# Ensure you import your items router here (e.g., from app.routers.items import router as items_router)
+# Or from app.api.v1.endpoints.items import router as items_router
+
 app = FastAPI(
     title="Multi-Tenant Platform API",
     description="Asynchronous multi-tenant backend with JWT authentication, Redis rate limiting, and PostgreSQL isolation.",
@@ -13,29 +16,29 @@ app = FastAPI(
 
 # --- Success Schemas ---
 class TokenResponse(BaseModel):
-    access_token: str = Field(..., example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
-    token_type: str = Field(default="bearer", example="bearer")
+    access_token: str = Field(..., json_schema_extra={"example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."})
+    token_type: str = Field(default="bearer", json_schema_extra={"example": "bearer"})
 
 class TenantInfoResponse(BaseModel):
-    tenant_id: str = Field(..., example="tenant-alpha")
-    name: str = Field(..., example="Alpha Corporation")
-    status: str = Field(..., example="active")
+    tenant_id: str = Field(..., json_schema_extra={"example": "tenant-alpha"})
+    name: str = Field(..., json_schema_extra={"example": "Alpha Corporation"})
+    status: str = Field(..., json_schema_extra={"example": "active"})
 
 # --- Specific Error Schemas ---
 class InvalidCredentialsResponse(BaseModel):
-    detail: str = Field(..., example="Invalid username or password")
+    detail: str = Field(..., json_schema_extra={"example": "Invalid username or password"})
 
 class MissingTokenResponse(BaseModel):
-    detail: str = Field(..., example="Not authenticated: Bearer token is missing or expired")
+    detail: str = Field(..., json_schema_extra={"example": "Not authenticated: Bearer token is missing or expired"})
 
 class MissingTenantHeaderResponse(BaseModel):
-    detail: str = Field(..., example="Header 'X-Tenant-ID' is required for tenant context")
+    detail: str = Field(..., json_schema_extra={"example": "Header 'X-Tenant-ID' is required for tenant context"})
 
 class TenantNotFoundResponse(BaseModel):
-    detail: str = Field(..., example="Tenant 'tenant-alpha' does not exist")
+    detail: str = Field(..., json_schema_extra={"example": "Tenant 'tenant-alpha' does not exist"})
 
 class RateLimitResponse(BaseModel):
-    detail: str = Field(..., example="Rate limit exceeded: 5 requests per minute allowed")
+    detail: str = Field(..., json_schema_extra={"example": "Rate limit exceeded: 5 requests per minute allowed"})
 
 # --- Custom OpenAPI Generator ---
 def custom_openapi():
@@ -82,6 +85,9 @@ async def root_redirect():
     return RedirectResponse(url="/docs")
 
 # --- Application Routes ---
+# TODO: Import and register your items router to pass pytest tests
+# app.include_router(items_router, prefix="/items", tags=["Items"])
+
 @app.get(
     "/health",
     status_code=status.HTTP_200_OK,

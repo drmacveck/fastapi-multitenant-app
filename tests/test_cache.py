@@ -1,11 +1,13 @@
-import os
 import json
+import os
+
 import pytest
 import redis.asyncio as redis
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = os.getenv("REDIS_PORT", "6379")
 REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+
 
 @pytest.mark.asyncio
 async def test_items_caching_and_invalidation():
