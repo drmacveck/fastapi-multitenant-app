@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Depends, Header, HTTPException, status
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, status
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 app = FastAPI(
