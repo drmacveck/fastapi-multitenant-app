@@ -1,30 +1,34 @@
-import os
-from collections.abc import AsyncGenerator
-
 import pytest
-from httpx import ASGITransport, AsyncClient
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from main import app
+from database import engine, Base
+import auth
 
-# Force localhost fallbacks before app/config imports
-os.environ["POSTGRES_HOST"] = os.getenv("POSTGRES_HOST", "localhost")
-os.environ["REDIS_HOST"] = os.getenv("REDIS_HOST", "localhost")
+@pytest_asyncio.fixture(scope="function", autouse=True)
+async def prepare_database():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
-from app.main import app  # isort: skip
-
-
-@pytest.fixture(scope="function")
-async def async_client() -> AsyncGenerator[AsyncClient, None]:
+@pytest_asyncio.fixture(scope="function")
+async def async_client():
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://testserver"
+        transport=ASGITransport(app=app),
+        base_url="http://test"
     ) as client:
         yield client
 
-
-@pytest.fixture(scope="function")
+@pytest.fixture
 def create_authenticated_headers():
-    async def _headers(tenant_id: str, email: str = "test@example.com"):
+    async def _headers(tenant_id: str, email: str = "test@example.com", **kwargs):
+        payload = {"sub": email, "tenant_id": tenant_id, **kwargs}
+        token = auth.create_access_token(data=payload)
         return {
             "X-Tenant-ID": tenant_id,
-            "Authorization": f"Bearer mock-token-{tenant_id}",
+            "Authorization": f"Bearer {token}"
         }
-
     return _headers

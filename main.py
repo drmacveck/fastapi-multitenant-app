@@ -1,131 +1,53 @@
-from fastapi import FastAPI, status
-from fastapi.openapi.utils import get_openapi
-from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field
+from typing import List, Optional
+from fastapi import FastAPI, Depends, Header, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# Ensure you import your items router here (e.g., from app.routers.items import router as items_router)
-# Or from app.api.v1.endpoints.items import router as items_router
+import crud
+import schemas
+import rate_limit
+from database import get_db
 
-app = FastAPI(
-    title="Multi-Tenant Platform API",
-    description="Asynchronous multi-tenant backend with JWT authentication, Redis rate limiting, and PostgreSQL isolation.",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
+app = FastAPI(title="Multi-Tenant Platform")
 
-# --- Success Schemas ---
-class TokenResponse(BaseModel):
-    access_token: str = Field(..., json_schema_extra={"example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."})
-    token_type: str = Field(default="bearer", json_schema_extra={"example": "bearer"})
 
-class TenantInfoResponse(BaseModel):
-    tenant_id: str = Field(..., json_schema_extra={"example": "tenant-alpha"})
-    name: str = Field(..., json_schema_extra={"example": "Alpha Corporation"})
-    status: str = Field(..., json_schema_extra={"example": "active"})
+async def get_tenant_id(x_tenant_id: Optional[str] = Header(None)) -> str:
+    if not x_tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Tenant-ID header is required",
+        )
+    return x_tenant_id
 
-# --- Specific Error Schemas ---
-class InvalidCredentialsResponse(BaseModel):
-    detail: str = Field(..., json_schema_extra={"example": "Invalid username or password"})
 
-class MissingTokenResponse(BaseModel):
-    detail: str = Field(..., json_schema_extra={"example": "Not authenticated: Bearer token is missing or expired"})
-
-class MissingTenantHeaderResponse(BaseModel):
-    detail: str = Field(..., json_schema_extra={"example": "Header 'X-Tenant-ID' is required for tenant context"})
-
-class TenantNotFoundResponse(BaseModel):
-    detail: str = Field(..., json_schema_extra={"example": "Tenant 'tenant-alpha' does not exist"})
-
-class RateLimitResponse(BaseModel):
-    detail: str = Field(..., json_schema_extra={"example": "Rate limit exceeded: 5 requests per minute allowed"})
-
-# --- Custom OpenAPI Generator ---
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-
-    openapi_schema = get_openapi(
-        title=app.title,
-        version=app.version,
-        description=app.description,
-        routes=app.routes,
-    )
-
-    components = openapi_schema.setdefault("components", {})
-    components["securitySchemes"] = {
-        "HTTPBearer": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-            "description": "Enter your JWT access token to authenticate."
-        }
-    }
-
-    for path in openapi_schema.get("paths", {}).values():
-        for method in path.values():
-            if isinstance(method, dict):
-                method.setdefault("parameters", []).append({
-                    "name": "X-Tenant-ID",
-                    "in": "header",
-                    "required": True,
-                    "schema": {"type": "string"},
-                    "description": "Tenant identifier for data isolation"
-                })
-
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
-
-app.openapi = custom_openapi
-
-# --- Root Redirect ---
-@app.get("/", include_in_schema=False)
-async def root_redirect():
-    """Redirect root path to interactive Swagger docs."""
-    return RedirectResponse(url="/docs")
-
-# --- Application Routes ---
-# TODO: Import and register your items router to pass pytest tests
-# app.include_router(items_router, prefix="/items", tags=["Items"])
-
-@app.get(
-    "/health",
-    status_code=status.HTTP_200_OK,
-    tags=["Health"],
-    summary="Health check endpoint"
-)
+@app.get("/health")
 async def health_check():
-    """Returns application health status."""
-    return {"status": "healthy"}
+    return {"status": "ok"}
+
 
 @app.post(
-    "/api/v1/auth/token",
-    response_model=TokenResponse,
-    status_code=status.HTTP_200_OK,
-    tags=["Authentication"],
-    summary="Generate JWT access token",
-    responses={
-        400: {"model": MissingTenantHeaderResponse, "description": "Missing Tenant Header"},
-        401: {"model": InvalidCredentialsResponse, "description": "Invalid Credentials"},
-        429: {"model": RateLimitResponse, "description": "Rate Limit Exceeded"}
-    }
+    "/items/",
+    response_model=schemas.Item,
+    status_code=status.HTTP_201_CREATED,
 )
-async def login():
-    """Authenticates tenant user and returns JWT token."""
-    return {"access_token": "mock-jwt-token-xyz", "token_type": "bearer"}
+async def create_item(
+    item: schemas.ItemCreate,
+    tenant_id: str = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    _rate_check=Depends(rate_limit.check_rate_limit)
+    if hasattr(rate_limit, "check_rate_limit")
+    else None,
+):
+    return await crud.create_item_for_tenant(
+        db=db, item=item, tenant_id=tenant_id
+    )
 
-@app.get(
-    "/api/v1/tenant/me",
-    response_model=TenantInfoResponse,
-    status_code=status.HTTP_200_OK,
-    tags=["Tenant"],
-    summary="Get current tenant information",
-    responses={
-        400: {"model": MissingTenantHeaderResponse, "description": "Missing Tenant Header"},
-        401: {"model": MissingTokenResponse, "description": "Unauthorized"},
-        404: {"model": TenantNotFoundResponse, "description": "Tenant Not Found"}
-    }
-)
-async def get_tenant_info():
-    """Retrieves context metadata for the requesting tenant."""
-    return {"tenant_id": "tenant-alpha", "name": "Alpha Corporation", "status": "active"}
+
+@app.get("/items/", response_model=List[schemas.Item])
+async def read_items(
+    tenant_id: str = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    _rate_check=Depends(rate_limit.check_rate_limit)
+    if hasattr(rate_limit, "check_rate_limit")
+    else None,
+):
+    return await crud.get_items_by_tenant(db=db, tenant_id=tenant_id)

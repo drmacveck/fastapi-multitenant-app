@@ -1,36 +1,34 @@
+import asyncio
 import os
 import sys
-from pathlib import Path
-
-# Add project root directory (/app) to Python path
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-import asyncio
 from logging.config import fileConfig
 
+# Add project root directory to sys.path so top-level imports resolve
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
 from models import Base
 
 config = context.config
 
-# Override sqlalchemy.url with environment variable if present
-db_url = os.getenv("DATABASE_URL")
-if db_url:
-    # Ensure URL works for async engine context
-    if db_url.startswith("postgresql://"):
-        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    config.set_main_option("sqlalchemy.url", db_url)
-
-if config.config_file_name is not None:
+if config.config_file_name:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
+def get_url():
+    user = os.getenv("POSTGRES_USER", "postgres")
+    password = os.getenv("POSTGRES_PASSWORD", "postgres")
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    db = os.getenv("POSTGRES_DB", "app_db")
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
+
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -47,8 +45,11 @@ def do_run_migrations(connection):
         context.run_migrations()
 
 async def run_async_migrations() -> None:
+    configuration = config.get_section(config.config_ini_section) or {}
+    configuration["sqlalchemy.url"] = get_url()
+
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
