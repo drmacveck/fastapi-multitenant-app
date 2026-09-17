@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+# Force localhost fallbacks before app/config imports
 os.environ["POSTGRES_HOST"] = os.getenv("POSTGRES_HOST", "localhost")
 os.environ["REDIS_HOST"] = os.getenv("REDIS_HOST", "localhost")
 
