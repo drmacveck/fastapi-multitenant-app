@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from alembic.config import Config
 from alembic import command
@@ -15,14 +16,12 @@ async def test_no_uncommitted_migration_drift():
         await conn.run_sync(Base.metadata.drop_all)
 
     try:
-        # 2. Run Alembic migrations from base to head
-        command.upgrade(alembic_cfg, "head")
-        
-        # 3. Verify zero drift between SQLAlchemy Base metadata and Alembic migrations
-        command.check(alembic_cfg)
+        # 2. Run Alembic migrations and drift checks in a separate thread to avoid loop conflicts
+        await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
+        await asyncio.to_thread(command.check, alembic_cfg)
     except Exception as e:
         pytest.fail(f"Alembic migration drift detected! Run 'alembic revision --autogenerate': {e}")
     finally:
-        # 4. Clean up schema for subsequent tests
+        # 3. Clean up schema for subsequent tests
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
