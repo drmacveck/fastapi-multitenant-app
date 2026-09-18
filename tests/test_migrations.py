@@ -14,11 +14,12 @@ async def test_no_uncommitted_migration_drift():
     alembic_cfg = Config(os.path.join(base_dir, "alembic.ini"))
     alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "alembic"))
 
-    # Completely wipe public schema tables to ensure clean slate regardless of prior test runs
+    # Execute DDL statements individually to satisfy asyncpg prepared statement constraints
     async with engine.begin() as conn:
-        await conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
+        await conn.execute(text("DROP SCHEMA public CASCADE;"))
+        await conn.execute(text("CREATE SCHEMA public;"))
 
-    # Run Alembic upgrade in thread worker to avoid event loop conflicts
+    # Run Alembic upgrade in thread worker
     await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
 
     # Compare DB state against Base.metadata
