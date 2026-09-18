@@ -13,17 +13,17 @@ async def test_no_uncommitted_migration_drift():
     alembic_cfg = Config(os.path.join(base_dir, "alembic.ini"))
     alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "alembic"))
 
+    # Drop application tables specifically without touching alembic_version
     async with engine.begin() as conn:
-        # Drop model tables on the test DB connection
-        await conn.run_sync(Base.metadata.drop_all)
+        def drop_app_tables(sync_conn):
+            for table in reversed(Base.metadata.sorted_tables):
+                table.drop(sync_conn, checkfirst=True)
+        await conn.run_sync(drop_app_tables)
 
-    # Execute Alembic upgrade in a worker thread to prevent nested asyncio.run() calls
-    def run_upgrade():
-        command.upgrade(alembic_cfg, "head")
+    # Apply Alembic migrations from scratch on a clean DB
+    await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
 
-    await asyncio.to_thread(run_upgrade)
-
-    # Compare applied database schema against Base.metadata
+    # Compare applied schema against Base.metadata
     async with engine.connect() as connection:
         def do_compare(sync_conn):
             context = MigrationContext.configure(sync_conn)
