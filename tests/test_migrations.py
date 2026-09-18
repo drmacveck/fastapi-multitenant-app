@@ -5,6 +5,7 @@ from alembic.config import Config
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+from sqlalchemy import text
 from database import Base, engine
 
 @pytest.mark.asyncio
@@ -13,19 +14,14 @@ async def test_no_uncommitted_migration_drift():
     alembic_cfg = Config(os.path.join(base_dir, "alembic.ini"))
     alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "alembic"))
 
-    def run_alembic_cycle():
-        # Downgrade to base to cleanly drop tables & reset alembic_version
-        try:
-            command.downgrade(alembic_cfg, "base")
-        except Exception:
-            pass
-        # Upgrade to head to apply all migrations fresh
-        command.upgrade(alembic_cfg, "head")
+    # Completely wipe public schema tables to ensure clean slate regardless of prior test runs
+    async with engine.begin() as conn:
+        await conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
 
-    # Run Alembic operations in worker thread
-    await asyncio.to_thread(run_alembic_cycle)
+    # Run Alembic upgrade in thread worker to avoid event loop conflicts
+    await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
 
-    # Compare applied database schema against Base.metadata
+    # Compare DB state against Base.metadata
     async with engine.connect() as connection:
         def do_compare(sync_conn):
             context = MigrationContext.configure(sync_conn)
