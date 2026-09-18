@@ -13,7 +13,11 @@ async def test_no_uncommitted_migration_drift():
     alembic_cfg = Config(os.path.join(base_dir, "alembic.ini"))
     alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "alembic"))
 
-    # Execute Alembic upgrade in a worker thread to avoid nested event loop conflicts
+    # Clean schema before testing migration application
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+    # Apply Alembic migrations from scratch on a clean DB
     await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
 
     # Compare applied schema against Base.metadata
