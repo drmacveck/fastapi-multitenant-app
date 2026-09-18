@@ -1,5 +1,4 @@
 import os
-import asyncio
 import pytest
 from alembic.config import Config
 from alembic import command
@@ -13,19 +12,19 @@ async def test_no_uncommitted_migration_drift():
     alembic_cfg = Config(os.path.join(base_dir, "alembic.ini"))
     alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "alembic"))
 
-    # Clean schema before testing migration application
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        def run_migration_check(sync_conn):
+            # Drop existing tables to guarantee a clean schema test
+            Base.metadata.drop_all(sync_conn)
 
-    # Apply Alembic migrations from scratch on a clean DB
-    await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
+            # Bind the sync connection to Alembic config
+            alembic_cfg.attributes["connection"] = sync_conn
+            command.upgrade(alembic_cfg, "head")
 
-    # Compare applied schema against Base.metadata
-    async with engine.connect() as connection:
-        def do_compare(sync_conn):
+            # Perform drift comparison on the same active connection
             context = MigrationContext.configure(sync_conn)
             return compare_metadata(context, Base.metadata)
 
-        diff = await connection.run_sync(do_compare)
+        diff = await conn.run_sync(run_migration_check)
 
     assert diff == [], f"Alembic migration drift detected! New upgrade operations detected: {diff}"
