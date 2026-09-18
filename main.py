@@ -51,3 +51,6 @@ async def read_items(
     else None,
 ):
     return await crud.get_items_by_tenant(db=db, tenant_id=tenant_id)
+
+from routers.agent import router as agent_router
+app.include_router(agent_router)
